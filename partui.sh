@@ -159,13 +159,14 @@ get_disk_size() {
 
 get_disk_model() {
 	_disk="$1"
-	_model="$(lsblk -n -o MODEL "$_disk" 2>/dev/null | head -1 | tr -d ' ')"
-	if [ -z "$_model" ]; then
-		_model="$(cat "/sys/block/$(basename "$_disk")/device/model" 2>/dev/null | tr -d ' ')"
+	_model="$(lsblk -n -o MODEL "$_disk" 2>/dev/null | head -1 | tr -d ' ' || true)"
+
+	_sysfs_model="/sys/block/$(basename "$_disk")/device/model"
+	if [ -z "$_model" ] && [ -f "$_sysfs_model" ]; then
+		_model="$(cat "$_sysfs_model" 2>/dev/null | tr -d ' ' || true)"
 	fi
-	if [ -z "$_model" ]; then
-		_model="Unknown"
-	fi
+
+	[ -z "$_model" ] && _model="Unknown"
 	echo "$_model"
 }
 
@@ -174,14 +175,16 @@ is_safe_disk() {
 	_basename="$(basename "$_disk")"
 
 	case "$_basename" in
-	loop* | rom* | squashfs*)
-		return 1
-		;;
+	loop* | rom* | squashfs*) return 1 ;;
 	esac
 
-	_root_dev="$(lsblk -n -o PKNAME "$(df / | tail -1 | awk '{print $1}')" 2>/dev/null | head -1)"
-	if [ "$_basename" = "$_root_dev" ]; then
-		return 1
+	_root_fs="$(df / | tail -1 | awk '{print $1}')"
+	# Solo ejecutar lsblk si la raiz es un dispositivo fisico (/dev/...)
+	if echo "$_root_fs" | grep -q "^/dev/"; then
+		_root_dev="$(lsblk -n -o PKNAME "$_root_fs" 2>/dev/null | head -1 || true)"
+		if [ "$_basename" = "$_root_dev" ]; then
+			return 1
+		fi
 	fi
 
 	return 0
@@ -232,10 +235,11 @@ render_msgbox() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$_title" --msgbox "$_message" 0 0 2>/dev/null
+		# Elimina 2>/dev/null y agrega el swap de descriptores
+		eval whiptail --title "$_title" --msgbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	dialog)
-		dialog --title "$_title" --msgbox "$_message" 0 0 2>/dev/null
+		eval dialog --title "$_title" --msgbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	*)
 		echo "=== $_title ==="
@@ -252,10 +256,11 @@ render_yesno() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$_title" --yesno "$_message" 0 0 2>/dev/null
+		# Elimina 2>/dev/null y agrega el swap de descriptores
+		eval whiptail --title "$_title" --yesno "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	dialog)
-		dialog --title "$_title" --yesno "$_message" 0 0 2>/dev/null
+		eval dialog --title "$_title" --yesno "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	*)
 		echo "=== $_title ==="
@@ -280,10 +285,11 @@ render_menu() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		eval whiptail --title "$_title" --menu "$_prompt" 0 0 0 $_items 2>/dev/null
+		# Elimina 2>/dev/null y agrega el swap de descriptores
+		eval whiptail --title "$_title" --menu "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	dialog)
-		eval dialog --title "$_title" --menu "$_prompt" 0 0 0 $_items 2>/dev/null
+		eval dialog --title "$_title" --menu "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	*)
 		echo "=== $_title ==="
@@ -315,10 +321,11 @@ render_input() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$_title" --inputbox "$_prompt" 0 0 "$_default" 2>/dev/null
+		# Elimina 2>/dev/null y agrega el swap de descriptores
+		eval whiptail --title "$_title" --inputbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	dialog)
-		dialog --title "$_title" --inputbox "$_prompt" 0 0 "$_default" 2>/dev/null
+		eval dialog --title "$_title" --inputbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
 		;;
 	*)
 		echo "=== $_title ==="
