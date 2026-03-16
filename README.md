@@ -18,7 +18,7 @@ A POSIX-compliant shell script for partitioning, formatting, and mounting storag
 
 ```bash
 # Direct execution (requires root)
-curl -fsSL https://raw.githubusercontent.com/user/repo/main/partui.sh | sudo sh -s -- --help
+curl -fsSL https://raw.githubusercontent.com/estebanmatias92/partui/refs/heads/main/partui.sh | sudo sh -s -- --help
 
 # Download locally
 curl -fsSL https://raw.githubusercontent.com/user/repo/main/partui.sh -o partui.sh
