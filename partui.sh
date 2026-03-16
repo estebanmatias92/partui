@@ -179,7 +179,6 @@ is_safe_disk() {
 	esac
 
 	_root_fs="$(df / | tail -1 | awk '{print $1}')"
-	# Solo ejecutar lsblk si la raiz es un dispositivo fisico (/dev/...)
 	if echo "$_root_fs" | grep -q "^/dev/"; then
 		_root_dev="$(lsblk -n -o PKNAME "$_root_fs" 2>/dev/null | head -1 || true)"
 		if [ "$_basename" = "$_root_dev" ]; then
@@ -208,7 +207,7 @@ detect_ram_size() {
 		echo "1G"
 	elif [ "$_ram_gb" -le 8 ]; then
 		echo "2G"
-	elif [ "_ram_gb" -le 16 ]; then
+	elif [ "$_ram_gb" -le 16 ]; then
 		echo "4G"
 	elif [ "$_ram_gb" -le 32 ]; then
 		echo "8G"
@@ -235,11 +234,10 @@ render_msgbox() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		# Elimina 2>/dev/null y agrega el swap de descriptores
-		eval whiptail --title "$_title" --msgbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		whiptail --title "$_title" --msgbox "$_message" 0 0
 		;;
 	dialog)
-		eval dialog --title "$_title" --msgbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		dialog --title "$_title" --msgbox "$_message" 0 0
 		;;
 	*)
 		echo "=== $_title ==="
@@ -256,11 +254,10 @@ render_yesno() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		# Elimina 2>/dev/null y agrega el swap de descriptores
-		eval whiptail --title "$_title" --yesno "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		whiptail --title "$_title" --yesno "$_message" 0 0
 		;;
 	dialog)
-		eval dialog --title "$_title" --yesno "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		dialog --title "$_title" --yesno "$_message" 0 0
 		;;
 	*)
 		echo "=== $_title ==="
@@ -277,19 +274,22 @@ render_menu() {
 	_prompt="$2"
 	shift 2
 
-	_items=""
-	while [ $# -gt 0 ]; do
-		_items="$_items \"$1\" \"$2\""
-		shift 2
-	done
-
 	case "$TUI_BACKEND" in
 	whiptail)
-		# Elimina 2>/dev/null y agrega el swap de descriptores
-		eval whiptail --title "$_title" --menu "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		_whiptail_items=""
+		while [ $# -gt 0 ]; do
+			_whiptail_items="$_whiptail_items $1 $2"
+			shift 2
+		done
+		whiptail --title "$_title" --menu "$_prompt" 0 0 0 $_whiptail_items
 		;;
 	dialog)
-		eval dialog --title "$_title" --menu "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		_dialog_items=""
+		while [ $# -gt 0 ]; do
+			_dialog_items="$_dialog_items $1 $2"
+			shift 2
+		done
+		dialog --title "$_title" --menu "$_prompt" 0 0 0 $_dialog_items
 		;;
 	*)
 		echo "=== $_title ==="
@@ -321,11 +321,10 @@ render_input() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		# Elimina 2>/dev/null y agrega el swap de descriptores
-		eval whiptail --title "$_title" --inputbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		whiptail --title "$_title" --inputbox "$_prompt" 0 0 "$_default"
 		;;
 	dialog)
-		eval dialog --title "$_title" --inputbox "$_prompt" 0 0 0 $_items 3>&1 1>&2 2>&3
+		dialog --title "$_title" --inputbox "$_prompt" 0 0 "$_default"
 		;;
 	*)
 		echo "=== $_title ==="
@@ -354,14 +353,14 @@ show_disk_selection() {
 		die "No available disks found"
 	fi
 
-	_items=""
+	_menu_args=""
 	for _disk in $_disks; do
 		_size="$(get_disk_size "$_disk")"
 		_model="$(get_disk_model "$_disk")"
-		_items="$_items \"$_disk\" \"${_size} - ${_model}\""
+		_menu_args="$_menu_args $_disk '${_size} - ${_model}'"
 	done
 
-	_selected="$(render_menu "Select Disk" "Choose the target disk:" $_items)" || die "No disk selected"
+	_selected="$(render_menu "Select Disk" "Choose the target disk:" $_menu_args)" || die "No disk selected"
 
 	TARGET_DISK="$_selected"
 }
