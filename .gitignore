@@ -1,0 +1,40 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Log files
+*.log
+
+# Environment files (secrets)
+.env
+.env.local
+*.pem
+*.key
+*.crt
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Testing
+test-results/
+coverage/
+.nyc_output/
+
+# OS specific
+.DS_Store
