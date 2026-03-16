@@ -37,6 +37,7 @@ sudo ./partui.sh --help
 ### Interactive Mode (Recommended for first use)
 
 1. **Start the wizard:**
+
    ```bash
    sudo ./partui.sh
    ```
@@ -76,7 +77,7 @@ sudo ./partui.sh --disk /dev/sda --dry-run --yes
 ## CLI Options
 
 | Flag | Description | Default |
-|------|-------------|---------|
+| ---- | ----------- | ------- |
 | `--disk DEVICE` | Target device | Interactive |
 | `--esp-size SIZE` | EFI partition size | `512M` |
 | `--swap-size SIZE` | Swap size (or `none`) | Auto (RAM) |
@@ -99,7 +100,8 @@ sudo ./partui.sh --disk /dev/sda --yes
 ```
 
 Output:
-```
+
+```bash
 Target Disk: /dev/sda
 EFI Size: 512M
 Swap Size: 2G
@@ -128,7 +130,8 @@ sudo ./partui.sh --disk /dev/sda --fs btrfs --dry-run
 ```
 
 Shows:
-```
+
+```bash
 === DRY RUN - Commands that would be executed ===
 Wiping disk signatures...
 sgdisk -Z /dev/sda
@@ -156,7 +159,7 @@ curl -fsSL https://your-repo/partitioning-wizard/partui.sh | sudo bash -s -- \
 ### Default Scheme
 
 | Partition | Type | Size | Filesystem | Mount |
-|-----------|------|------|------------|-------|
+| --------- | ---- | ---- | ---------- | ----- |
 | 1 | EFI | 512M | vfat | /boot/efi |
 | 2 | Swap | RAM size | swap | - |
 | 3 | Root | Rest | ext4/btrfs/xfs | /mnt |
@@ -164,6 +167,7 @@ curl -fsSL https://your-repo/partitioning-wizard/partui.sh | sudo bash -s -- \
 ### BTRFS Subvolumes
 
 When BTRFS is selected, subvolumes are created:
+
 - `@` - Root filesystem
 - `@home` - /home
 - `@nix` - /nix (NixOS store)
@@ -183,6 +187,7 @@ Mounted with compression and discard options.
 ## Disclaimer
 
 **WARNING**: This script will ERASE ALL DATA on the selected disk. Always:
+
 1. Backup important data before running
 2. Verify the target disk is correct
 3. Use `--dry-run` first to preview operations
@@ -195,6 +200,7 @@ MIT License - Use at your own risk.
 ## Contributing
 
 Pull requests welcome. Ensure:
+
 - POSIX compliance (pass `shellcheck -s sh`)
 - Test on real hardware or VM
 - Maintain idempotency and error handling

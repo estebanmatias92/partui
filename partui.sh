@@ -26,18 +26,18 @@ ParTUI - Interactive partitioning wizard
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  --disk DEVICE        Target device (e.g., /dev/sda)
-  --esp-size SIZE      EFI partition size (default: 512M)
-  --swap-size SIZE     Swap size (default: 2G)
-  --root-size SIZE     Root partition size (default: rest)
-  --home-size SIZE     Home partition size (optional)
-  --fs FS              Filesystem: ext4, btrfs, xfs (default: ext4)
-  --btrfs-subvols SUBS Comma-separated BTRFS subvolumes (default: @,@home,@nix,@var)
-  --mount-point PATH   Base mount point (default: /mnt)
-  --label LABEL        Root partition label (default: root)
-  --dry-run            Show commands without executing
-  -y, --yes            Skip confirmation
-  -h, --help           Show this help
+  --disk DEVICE         Target device (e.g., /dev/sda)
+  --esp-size SIZE       EFI partition size (default: 512M)
+  --swap-size SIZE      Swap size (default: 2G)
+  --root-size SIZE      Root partition size (default: rest)
+  --home-size SIZE      Home partition size (optional)
+  --fs FS               Filesystem: ext4, btrfs, xfs (default: ext4)
+  --btrfs-subvols SUBS  Comma-separated BTRFS subvolumes (default: @,@home,@nix,@var)
+  --mount-point PATH    Base mount point (default: /mnt)
+  --label LABEL         Root partition label (default: root)
+  --dry-run             Show commands without executing
+  -y, --yes             Skip confirmation
+  -h, --help            Show this help
 
 Examples:
   $(basename "$0") --disk /dev/sda --fs btrfs --yes
@@ -140,10 +140,9 @@ check_dependencies() {
 
 get_partition_suffix() {
 	_disk="$1"
-	_basename
-	basename="$(basename "$disk")"
+	_basename="$(basename "$_disk")"
 
-	case "$basename" in
+	case "$_basename" in
 	nvme* | loop* | rd*)
 		echo "p"
 		;;
@@ -155,36 +154,33 @@ get_partition_suffix() {
 
 get_disk_size() {
 	_disk="$1"
-	lsblk -n -o SIZE -b "$disk" 2>/dev/null | head -1 | tr -d ' '
+	lsblk -n -o SIZE -b "$_disk" 2>/dev/null | head -1 | tr -d ' '
 }
 
 get_disk_model() {
 	_disk="$1"
-	_model
-	model="$(lsblk -n -o MODEL "$disk" 2>/dev/null | head -1 | tr -d ' ')"
-	if [ -z "$model" ]; then
-		model="$(cat "/sys/block/$(basename "$disk")/device/model" 2>/dev/null | tr -d ' ')"
+	_model="$(lsblk -n -o MODEL "$_disk" 2>/dev/null | head -1 | tr -d ' ')"
+	if [ -z "$_model" ]; then
+		_model="$(cat "/sys/block/$(basename "$_disk")/device/model" 2>/dev/null | tr -d ' ')"
 	fi
-	if [ -z "$model" ]; then
-		model="Unknown"
+	if [ -z "$_model" ]; then
+		_model="Unknown"
 	fi
-	echo "$model"
+	echo "$_model"
 }
 
 is_safe_disk() {
 	_disk="$1"
-	_basename
-	basename="$(basename "$disk")"
+	_basename="$(basename "$_disk")"
 
-	case "$basename" in
+	case "$_basename" in
 	loop* | rom* | squashfs*)
 		return 1
 		;;
 	esac
 
-	_root_dev
-	root_dev="$(lsblk -n -o PKNAME "$(df / | tail -1 | awk '{print $1}')" 2>/dev/null | head -1)"
-	if [ "$basename" = "$root_dev" ]; then
+	_root_dev="$(lsblk -n -o PKNAME "$(df / | tail -1 | awk '{print $1}')" 2>/dev/null | head -1)"
+	if [ "$_basename" = "$_root_dev" ]; then
 		return 1
 	fi
 
@@ -193,27 +189,25 @@ is_safe_disk() {
 
 list_available_disks() {
 	_disks=""
-	for dev in /dev/sd[a-z] /dev/vd[a-z] /dev/nvme[0-9]*n1; do
-		if [ -e "$dev" ] && is_safe_disk "$dev"; then
-			disks="$disks $dev"
+	for _dev in /dev/sd[a-z] /dev/vd[a-z] /dev/nvme[0-9]*n1; do
+		if [ -e "$_dev" ] && is_safe_disk "$_dev"; then
+			_disks="$_disks $_dev"
 		fi
 	done
-	echo "$disks" | tr -s ' '
+	echo "$_disks" | tr -s ' '
 }
 
 detect_ram_size() {
-	_ram_kb
-	ram_kb="$(grep MemTotal /proc/meminfo | awk '{print $2}')"
-	_ram_gb
-	ram_gb=$((ram_kb / 1024 / 1024))
+	_ram_kb="$(grep MemTotal /proc/meminfo | awk '{print $2}')"
+	_ram_gb=$((_ram_kb / 1024 / 1024))
 
-	if [ "$ram_gb" -le 2 ]; then
+	if [ "$_ram_gb" -le 2 ]; then
 		echo "1G"
-	elif [ "$ram_gb" -le 8 ]; then
+	elif [ "$_ram_gb" -le 8 ]; then
 		echo "2G"
-	elif [ "$ram_gb" -le 16 ]; then
+	elif [ "_ram_gb" -le 16 ]; then
 		echo "4G"
-	elif [ "$ram_gb" -le 32 ]; then
+	elif [ "$_ram_gb" -le 32 ]; then
 		echo "8G"
 	else
 		echo "8G"
@@ -238,14 +232,14 @@ render_msgbox() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$title" --msgbox "$message" 0 0 2>/dev/null
+		whiptail --title "$_title" --msgbox "$_message" 0 0 2>/dev/null
 		;;
 	dialog)
-		dialog --title "$title" --msgbox "$message" 0 0 2>/dev/null
+		dialog --title "$_title" --msgbox "$_message" 0 0 2>/dev/null
 		;;
 	*)
-		echo "=== $title ==="
-		echo "$message"
+		echo "=== $_title ==="
+		echo "$_message"
 		echo "Press Enter to continue..."
 		read -r _
 		;;
@@ -258,17 +252,17 @@ render_yesno() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$title" --yesno "$message" 0 0 2>/dev/null
+		whiptail --title "$_title" --yesno "$_message" 0 0 2>/dev/null
 		;;
 	dialog)
-		dialog --title "$title" --yesno "$message" 0 0 2>/dev/null
+		dialog --title "$_title" --yesno "$_message" 0 0 2>/dev/null
 		;;
 	*)
-		echo "=== $title ==="
-		echo "$message"
+		echo "=== $_title ==="
+		echo "$_message"
 		printf "Type 'yes' to confirm: "
-		read -r ans
-		[ "$ans" = "yes" ]
+		read -r _ans
+		[ "$_ans" = "yes" ]
 		;;
 	esac
 }
@@ -280,34 +274,34 @@ render_menu() {
 
 	_items=""
 	while [ $# -gt 0 ]; do
-		items="$items \"$1\" \"$2\""
+		_items="$_items \"$1\" \"$2\""
 		shift 2
 	done
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		eval whiptail --title "$title" --menu "$prompt" 0 0 0 $items 2>/dev/null
+		eval whiptail --title "$_title" --menu "$_prompt" 0 0 0 $_items 2>/dev/null
 		;;
 	dialog)
-		eval dialog --title "$title" --menu "$prompt" 0 0 0 $items 2>/dev/null
+		eval dialog --title "$_title" --menu "$_prompt" 0 0 0 $_items 2>/dev/null
 		;;
 	*)
-		echo "=== $title ==="
-		echo "$prompt"
+		echo "=== $_title ==="
+		echo "$_prompt"
 		_i=1
 		_options=""
 		while [ $# -gt 0 ]; do
-			echo "$i) $1 ($2)"
-			options="$options $1"
+			echo "$_i) $1 ($2)"
+			_options="$_options $1"
 			shift 2
-			i=$((i + 1))
+			_i=$((_i + 1))
 		done
 		printf "Select option: "
-		read -r ans
-		i=1
-		for opt in $options; do
-			[ "$ans" = "$i" ] && echo "$opt" && return 0
-			i=$((i + 1))
+		read -r _ans
+		_i=1
+		for _opt in $_options; do
+			[ "$_ans" = "$_i" ] && echo "$_opt" && return 0
+			_i=$((_i + 1))
 		done
 		echo ""
 		;;
@@ -321,18 +315,18 @@ render_input() {
 
 	case "$TUI_BACKEND" in
 	whiptail)
-		whiptail --title "$title" --inputbox "$prompt" 0 0 "$default" 2>/dev/null
+		whiptail --title "$_title" --inputbox "$_prompt" 0 0 "$_default" 2>/dev/null
 		;;
 	dialog)
-		dialog --title "$title" --inputbox "$prompt" 0 0 "$default" 2>/dev/null
+		dialog --title "$_title" --inputbox "$_prompt" 0 0 "$_default" 2>/dev/null
 		;;
 	*)
-		echo "=== $title ==="
-		echo "$prompt"
-		[ -n "$default" ] && echo "Default: $default"
+		echo "=== $_title ==="
+		echo "$_prompt"
+		[ -n "$_default" ] && echo "Default: $_default"
 		printf "Value: "
-		read -r ans
-		[ -z "$ans" ] && echo "$default" || echo "$ans"
+		read -r _ans
+		[ -z "$_ans" ] && echo "$_default" || echo "$_ans"
 		;;
 	esac
 }
@@ -347,34 +341,30 @@ apply_defaults() {
 }
 
 show_disk_selection() {
-	_disks
-	disks="$(list_available_disks)"
+	_disks="$(list_available_disks)"
 
-	if [ -z "$disks" ]; then
+	if [ -z "$_disks" ]; then
 		die "No available disks found"
 	fi
 
 	_items=""
-	for disk in $disks; do
-		_size model
-		size="$(get_disk_size "$disk")"
-		model="$(get_disk_model "$disk")"
-		items="$items \"$disk\" \"${size} - ${model}\""
+	for _disk in $_disks; do
+		_size="$(get_disk_size "$_disk")"
+		_model="$(get_disk_model "$_disk")"
+		_items="$_items \"$_disk\" \"${_size} - ${_model}\""
 	done
 
-	_selected
-	selected="$(render_menu "Select Disk" "Choose the target disk:" $items)" || die "No disk selected"
+	_selected="$(render_menu "Select Disk" "Choose the target disk:" $_items)" || die "No disk selected"
 
-	TARGET_DISK="$selected"
+	TARGET_DISK="$_selected"
 }
 
 show_layout_choice() {
-	_choice
-	choice="$(render_menu "Partition Layout" "Choose partition scheme:" \
+	_choice="$(render_menu "Partition Layout" "Choose partition scheme:" \
 		"default" "ESP + Swap + Root (recommended)" \
-		"custom" "Customize partition sizes")" || choice="default"
+		"custom" "Customize partition sizes")" || _choice="default"
 
-	if [ "$choice" = "default" ]; then
+	if [ "$_choice" = "default" ]; then
 		ROOT_SIZE="+"
 	else
 		show_custom_layout
@@ -382,33 +372,28 @@ show_layout_choice() {
 }
 
 show_custom_layout() {
-	_esp
-	esp="$(render_input "EFI Partition" "Enter EFI partition size:" "$ESP_SIZE")" || esp="$ESP_SIZE"
-	ESP_SIZE="${esp:-$DEFAULT_ESP_SIZE}"
+	_esp="$(render_input "EFI Partition" "Enter EFI partition size:" "$ESP_SIZE")" || _esp="$ESP_SIZE"
+	ESP_SIZE="${_esp:-$DEFAULT_ESP_SIZE}"
 
-	_swap
-	swap="$(render_input "Swap Partition" "Enter swap size (or 'none' to skip):" "$SWAP_SIZE")" || swap="$SWAP_SIZE"
-	SWAP_SIZE="${swap:-$DEFAULT_SWAP_SIZE}"
+	_swap="$(render_input "Swap Partition" "Enter swap size (or 'none' to skip):" "$SWAP_SIZE")" || _swap="$SWAP_SIZE"
+	SWAP_SIZE="${_swap:-$DEFAULT_SWAP_SIZE}"
 
-	_root
-	root="$(render_input "Root Partition" "Enter root size (+ for rest, or exact size):" "+")"
-	ROOT_SIZE="${root:-"+"}"
+	_root="$(render_input "Root Partition" "Enter root size (+ for rest, or exact size):" "+")"
+	ROOT_SIZE="${_root:-"+"}"
 
-	_home
-	home="$(render_input "Home Partition" "Enter home size (empty for none):" "")"
-	if [ -n "$home" ]; then
-		HOME_SIZE="$home"
+	_home="$(render_input "Home Partition" "Enter home size (empty for none):" "")"
+	if [ -n "$_home" ]; then
+		HOME_SIZE="$_home"
 	fi
 }
 
 show_fs_selection() {
-	_choice
-	choice="$(render_menu "Filesystem" "Choose filesystem:" \
+	_choice="$(render_menu "Filesystem" "Choose filesystem:" \
 		"ext4" "ext4 (recommended, stable)" \
 		"btrfs" "btrfs (with subvolumes support)" \
-		"xfs" "xfs (high performance)")" || choice="$DEFAULT_FS"
+		"xfs" "xfs (high performance)")" || _choice="$DEFAULT_FS"
 
-	FS="$choice"
+	FS="$_choice"
 
 	if [ "$FS" = "btrfs" ]; then
 		show_btrfs_subvols
@@ -416,39 +401,37 @@ show_fs_selection() {
 }
 
 show_btrfs_subvols() {
-	_subvols
-	subvols="$(render_input "BTRFS Subvolumes" "Enter comma-separated subvolume names:" "$BTRFS_SUBVOLS")" || subvols="$BTRFS_SUBVOLS"
-	BTRFS_SUBVOLS="${subvols:-"@,@home,@nix,@var"}"
+	_subvols="$(render_input "BTRFS Subvolumes" "Enter comma-separated subvolume names:" "$BTRFS_SUBVOLS")" || _subvols="$BTRFS_SUBVOLS"
+	BTRFS_SUBVOLS="${_subvols:-"@,@home,@nix,@var"}"
 }
 
 show_review() {
-	_summary
-	summary="Target Disk: $TARGET_DISK
+	_summary="Target Disk: $TARGET_DISK
 EFI Size: $ESP_SIZE
 Swap Size: $SWAP_SIZE
 Root Size: $ROOT_SIZE"
 
 	if [ -n "$HOME_SIZE" ]; then
-		summary="$summary
+		_summary="$_summary
 Home Size: $HOME_SIZE"
 	fi
 
-	summary="$summary
+	_summary="$_summary
 Filesystem: $FS
 Mount Point: $MOUNT_POINT
 Label: $LABEL"
 
 	if [ "$FS" = "btrfs" ]; then
-		summary="$summary
+		_summary="$_summary
 Subvolumes: $BTRFS_SUBVOLS"
 	fi
 
 	if [ "$DRY_RUN" = "true" ]; then
-		summary="$summary
+		_summary="$_summary
 *** DRY RUN MODE - No changes will be made ***"
 	fi
 
-	render_msgbox "Review Configuration" "$summary"
+	render_msgbox "Review Configuration" "$_summary"
 }
 
 confirm_execution() {
@@ -459,13 +442,12 @@ confirm_execution() {
 	_msg="This will ERASE ALL DATA on $TARGET_DISK
 Are you sure you want to continue?"
 
-	render_yesno "Confirm Execution" "$msg" || die "Operation cancelled"
+	render_yesno "Confirm Execution" "$_msg" || die "Operation cancelled"
 }
 
 execute_partitioning() {
 	_disk="$TARGET_DISK"
-	_suffix
-	suffix="$(get_partition_suffix "$disk")"
+	_suffix="$(get_partition_suffix "$_disk")"
 
 	if [ "$DRY_RUN" = "true" ]; then
 		echo "=== DRY RUN - Commands that would be executed ==="
@@ -473,8 +455,8 @@ execute_partitioning() {
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Wiping disk signatures..."
-		wipefs -a "$disk" 2>/dev/null || true
-		sgdisk -Z "$disk"
+		wipefs -a "$_disk" 2>/dev/null || true
+		sgdisk -Z "$_disk"
 	fi
 
 	_part_num=1
@@ -482,80 +464,79 @@ execute_partitioning() {
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Creating EFI partition..."
-		sgdisk -n "${part_num}:${start_sector}:+${ESP_SIZE}" \
-			-c "${part_num}:${disk}${suffix}${part_num}-ESP" \
-			-t "${part_num}:ef00" "$disk"
+		sgdisk -n "${_part_num}:${_start_sector}:+${ESP_SIZE}" \
+			-c "${_part_num}:${_disk}${_suffix}${_part_num}-ESP" \
+			-t "${_part_num}:ef00" "$_disk"
 	else
-		echo "sgdisk -n ${part_num}:${start_sector}:+${ESP_SIZE} -c ${part_num}:ESP -t ${part_num}:ef00 $disk"
+		echo "sgdisk -n ${_part_num}:${_start_sector}:+${ESP_SIZE} -c ${_part_num}:ESP -t ${_part_num}:ef00 $_disk"
 	fi
 
-	part_num=$((part_num + 1))
-	_next_start
-	next_start="+${ESP_SIZE}"
+	_part_num=$((_part_num + 1))
+	_next_start="+${ESP_SIZE}"
 
 	if [ "$SWAP_SIZE" != "none" ] && [ -n "$SWAP_SIZE" ]; then
 		if [ "$DRY_RUN" != "true" ]; then
 			echo "Creating swap partition..."
-			sgdisk -n "${part_num}:${next_start}:+${SWAP_SIZE}" \
-				-c "${part_num}:${disk}${suffix}${part_num}-swap" \
-				-t "${part_num}:8200" "$disk"
+			sgdisk -n "${_part_num}:${_next_start}:+${SWAP_SIZE}" \
+				-c "${_part_num}:${_disk}${_suffix}${_part_num}-swap" \
+				-t "${_part_num}:8200" "$_disk"
 		else
-			echo "sgdisk -n ${part_num}:${next_start}:+${SWAP_SIZE} -c ${part_num}:swap -t ${part_num}:8200 $disk"
+			echo "sgdisk -n ${_part_num}:${_next_start}:+${SWAP_SIZE} -c ${_part_num}:swap -t ${_part_num}:8200 $_disk"
 		fi
-		part_num=$((part_num + 1))
-		next_start="+${SWAP_SIZE}"
+		_part_num=$((_part_num + 1))
+		_next_start="+${SWAP_SIZE}"
 	fi
 
 	if [ -n "$HOME_SIZE" ]; then
 		if [ "$DRY_RUN" != "true" ]; then
 			echo "Creating home partition..."
-			sgdisk -n "${part_num}:${next_start}:+${HOME_SIZE}" \
-				-c "${part_num}:${disk}${suffix}${part_num}-home" \
-				-t "${part_num}:8300" "$disk"
+			sgdisk -n "${_part_num}:${_next_start}:+${HOME_SIZE}" \
+				-c "${_part_num}:${_disk}${_suffix}${_part_num}-home" \
+				-t "${_part_num}:8300" "$_disk"
 		else
-			echo "sgdisk -n ${part_num}:${next_start}:+${HOME_SIZE} -c ${part_num}:home -t ${part_num}:8300 $disk"
+			echo "sgdisk -n ${_part_num}:${_next_start}:+${HOME_SIZE} -c ${_part_num}:home -t ${_part_num}:8300 $_disk"
 		fi
-		part_num=$((part_num + 1))
-		next_start="+${HOME_SIZE}"
+		_part_num=$((_part_num + 1))
+		_next_start="+${HOME_SIZE}"
 	fi
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Creating root partition..."
-		sgdisk -n "${part_num}:${next_start}:0" \
-			-c "${part_num}:${disk}${suffix}${part_num}-root" \
-			-t "${part_num}:8300" "$disk"
+		sgdisk -n "${_part_num}:${_next_start}:0" \
+			-c "${_part_num}:${_disk}${_suffix}${_part_num}-root" \
+			-t "${_part_num}:8300" "$_disk"
 	else
-		echo "sgdisk -n ${part_num}:${next_start}:0 -c ${part_num}:root -t ${part_num}:8300 $disk"
+		echo "sgdisk -n ${_part_num}:${_next_start}:0 -c ${_part_num}:root -t ${_part_num}:8300 $_disk"
 	fi
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Refreshing partition table..."
-		partprobe "$disk"
+		partprobe "$_disk"
 		udevadm trigger
 		sleep 2
 	fi
 
-	part_num=1
+	_part_num=1
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Formatting EFI partition..."
-		mkfs.fat -F 32 "${disk}${suffix}${part_num}"
+		mkfs.fat -F 32 "${_disk}${_suffix}${_part_num}"
 	else
-		echo "mkfs.fat -F 32 ${disk}${suffix}${part_num}"
+		echo "mkfs.fat -F 32 ${_disk}${_suffix}${_part_num}"
 	fi
 
-	part_num=$((part_num + 1))
+	_part_num=$((_part_num + 1))
 
 	if [ "$SWAP_SIZE" != "none" ] && [ -n "$SWAP_SIZE" ]; then
 		if [ "$DRY_RUN" != "true" ]; then
 			echo "Formatting swap partition..."
-			mkswap "${disk}${suffix}${part_num}"
-			swapon "${disk}${suffix}${part_num}"
+			mkswap "${_disk}${_suffix}${_part_num}"
+			swapon "${_disk}${_suffix}${_part_num}"
 		else
-			echo "mkswap ${disk}${suffix}${part_num}"
-			echo "swapon ${disk}${suffix}${part_num}"
+			echo "mkswap ${_disk}${_suffix}${_part_num}"
+			echo "swapon ${_disk}${_suffix}${_part_num}"
 		fi
-		part_num=$((part_num + 1))
+		_part_num=$((_part_num + 1))
 	fi
 
 	if [ -n "$HOME_SIZE" ]; then
@@ -563,75 +544,75 @@ execute_partitioning() {
 			echo "Formatting home partition..."
 			case "$FS" in
 			ext4)
-				mkfs.ext4 -F "${disk}${suffix}${part_num}"
+				mkfs.ext4 -F "${_disk}${_suffix}${_part_num}"
 				;;
 			btrfs)
-				mkfs.btrfs -f "${disk}${suffix}${part_num}"
+				mkfs.btrfs -f "${_disk}${_suffix}${_part_num}"
 				;;
 			xfs)
-				mkfs.xfs -f "${disk}${suffix}${part_num}"
+				mkfs.xfs -f "${_disk}${_suffix}${_part_num}"
 				;;
 			esac
 		else
-			echo "mkfs.$FS ${disk}${suffix}${part_num}"
+			echo "mkfs.$FS ${_disk}${_suffix}${_part_num}"
 		fi
-		part_num=$((part_num + 1))
+		_part_num=$((_part_num + 1))
 	fi
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Formatting root partition..."
 		case "$FS" in
 		ext4)
-			mkfs.ext4 -L "$LABEL" -F "${disk}${suffix}${part_num}"
+			mkfs.ext4 -L "$LABEL" -F "${_disk}${_suffix}${_part_num}"
 			;;
 		btrfs)
-			mkfs.btrfs -L "$LABEL" -f "${disk}${suffix}${part_num}"
+			mkfs.btrfs -L "$LABEL" -f "${_disk}${_suffix}${_part_num}"
 			;;
 		xfs)
-			mkfs.xfs -L "$LABEL" -f "${disk}${suffix}${part_num}"
+			mkfs.xfs -L "$LABEL" -f "${_disk}${_suffix}${_part_num}"
 			;;
 		esac
 	else
-		echo "mkfs.$FS -L $LABEL ${disk}${suffix}${part_num}"
+		echo "mkfs.$FS -L $LABEL ${_disk}${_suffix}${_part_num}"
 	fi
 
 	if [ "$DRY_RUN" != "true" ]; then
 		echo "Mounting filesystems..."
 
 		if [ "$FS" = "btrfs" ]; then
-			mount -o "$BTRFS_OPTS" "${disk}${suffix}${part_num}" "$MOUNT_POINT"
+			mount -o "$BTRFS_OPTS" "${_disk}${_suffix}${_part_num}" "$MOUNT_POINT"
 
-			old_ifs="$IFS"
+			_old_ifs="$IFS"
 			IFS=','
-			for subvol in $BTRFS_SUBVOLS; do
-				echo "Creating subvolume: $subvol"
-				btrfs subvolume create "$MOUNT_POINT/$subvol"
+			for _subvol in $BTRFS_SUBVOLS; do
+				echo "Creating subvolume: $_subvol"
+				btrfs subvolume create "$MOUNT_POINT/$_subvol"
 			done
-			IFS="$old_ifs"
+			IFS="$_old_ifs"
 
 			umount "$MOUNT_POINT"
 
-			mount -o "$BTRFS_OPTS,subvol=@" "${disk}${suffix}${part_num}" "$MOUNT_POINT"
+			mount -o "$BTRFS_OPTS,subvol=@" "${_disk}${_suffix}${_part_num}" "$MOUNT_POINT"
 
 			mkdir -p "$MOUNT_POINT/boot"
 		else
-			mount "${disk}${suffix}${part_num}" "$MOUNT_POINT"
+			mount "${_disk}${_suffix}${_part_num}" "$MOUNT_POINT"
 		fi
 
 		mkdir -p "$MOUNT_POINT/boot/efi"
-		mount "${disk}${suffix}1" "$MOUNT_POINT/boot/efi"
+		mount "${_disk}${_suffix}1" "$MOUNT_POINT/boot/efi"
 
 		echo "Mounting complete!"
 		echo ""
 		echo "Summary:"
 		echo "  Mount point: $MOUNT_POINT"
-		echo "  EFI: ${disk}${suffix}1 -> $MOUNT_POINT/boot/efi"
-		echo "  Root: ${disk}${suffix}${part_num} -> $MOUNT_POINT"
+		echo "  EFI: ${_disk}${_suffix}1 -> $MOUNT_POINT/boot/efi"
+		echo "  Root: ${_disk}${_suffix}${_part_num} -> $MOUNT_POINT"
 		if [ "$FS" = "btrfs" ]; then
 			echo "  BTRFS subvolumes: $BTRFS_SUBVOLS"
 		fi
 	else
-		echo "mount -o $BTRFS_OPTS ${disk}${suffix}${part_num} $MOUNT_POINT"
+		echo "mount -o $BTRFS_OPTS ${_disk}${_suffix}${_part_num} $MOUNT_POINT"
 	fi
 }
 
